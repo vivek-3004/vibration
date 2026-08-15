@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: vibration-server
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
