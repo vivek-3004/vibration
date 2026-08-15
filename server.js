@@ -82,23 +82,33 @@ let phones = [];
 const MAX_PHONES = 2;
 
 io.on('connection', (socket) => {
-  // Check if this is a phone or a browser
   const authValue = socket.handshake.auth?.isPhone;
-  const isPhone = authValue === "true" || authValue === true;
+  const queryValue = socket.handshake.query?.isPhone;
+  let isPhone = authValue === "true" || authValue === true || 
+                queryValue === "true" || queryValue === true;
   
-  console.log(`🔌 Connection: isPhone=${isPhone}, auth=${authValue}`);
-  console.log(`📱 Current phones: ${phones.length}/${MAX_PHONES}`);
+  console.log(`🔌 Connection attempt: isPhone=${isPhone}`);
+  console.log(`   auth:`, socket.handshake.auth);
+  console.log(`   query:`, socket.handshake.query);
+  
+  // Listen for manual registration
+  socket.on('register_phone', (data) => {
+      if (data?.isPhone === true && !phones.includes(socket.id) && phones.length < MAX_PHONES) {
+          isPhone = true;
+          phones.push(socket.id);
+          io.emit('status', { count: phones.length });
+          console.log(`📱 Phone registered manually: ${socket.id}`);
+      }
+  });
 
-  // Only accept phone connections, ignore browser tabs
   if (!isPhone) {
     console.log(`🌐 Ignoring browser/web connection: ${socket.id}`);
     socket.emit('status', { count: phones.length });
     return;
   }
 
-  // Limit to MAX_PHONES
   if (phones.length >= MAX_PHONES) {
-    console.log(`⚠️  Max phones reached, rejecting: ${socket.id}`);
+    console.log(`⚠️ Max phones reached, rejecting: ${socket.id}`);
     socket.emit('error', { message: 'Server is full (2/2 phones connected)' });
     socket.disconnect(true);
     return;
@@ -114,7 +124,7 @@ io.on('connection', (socket) => {
       io.to(otherPhone).emit('vibrate');
       console.log(`⚡ Buzz: ${socket.id} → ${otherPhone}`);
     } else {
-      console.log(`⚠️  Buzz ignored - only 1 phone connected`);
+      console.log(`⚠️ Buzz ignored - only 1 phone connected`);
     }
   });
 
