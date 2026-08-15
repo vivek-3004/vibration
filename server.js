@@ -83,19 +83,16 @@ const MAX_PHONES = 2;
 
 io.on('connection', (socket) => {
   // Check if this is a phone or a browser
-  const userAgent = socket.handshake.headers['user-agent'] || '';
-  const isPhone = socket.handshake.auth?.isPhone === "true" || 
-                socket.handshake.auth?.isPhone === true;
+  const authValue = socket.handshake.auth?.isPhone;
+  const isPhone = authValue === "true" || authValue === true;
   
-  console.log(`🔌 Connection from: ${userAgent.substring(0, 50)}...`);
-  console.log(`📱 Is phone? ${isPhone}`);
+  console.log(`🔌 Connection: isPhone=${isPhone}, auth=${authValue}`);
+  console.log(`📱 Current phones: ${phones.length}/${MAX_PHONES}`);
 
   // Only accept phone connections, ignore browser tabs
   if (!isPhone) {
     console.log(`🌐 Ignoring browser/web connection: ${socket.id}`);
-    // Still let it connect for status display, but don't count it
     socket.emit('status', { count: phones.length });
-    socket.on('disconnect', () => {});
     return;
   }
 
@@ -111,7 +108,6 @@ io.on('connection', (socket) => {
   phones.push(socket.id);
   io.emit('status', { count: phones.length });
 
-  // When one phone buzzes, vibrate the OTHER phone
   socket.on('buzz', () => {
     const otherPhone = phones.find(id => id !== socket.id);
     if (otherPhone) {
