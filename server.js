@@ -4,9 +4,12 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, { 
+  cors: { origin: "*" },
+  maxHttpBufferSize: 1e6 
+});
 
-// Simple homepage so Render doesn't show "Cannot GET /"
+// Simple homepage
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -58,6 +61,9 @@ app.get('/', (req, res) => {
           <span class="dot"></span>
           <span id="count">0</span>/2 phones connected
         </div>
+        <p style="font-size:12px;opacity:0.7;margin-top:20px;">
+          (Web browsers don't count as phones)
+        </p>
       </div>
       <script src="/socket.io/socket.io.js"></script>
       <script>
@@ -71,11 +77,36 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Track connected phones
+// Track only REAL phones (not browser tabs)
 let phones = [];
+const MAX_PHONES = 2;
 
 io.on('connection', (socket) => {
-  console.log(`📱 Phone connected: ${socket.id}`);
+  // Check if this is a phone or a browser
+  const userAgent = socket.handshake.headers['user-agent'] || '';
+  const isPhone = socket.handshake.auth?.isPhone === true;
+  
+  console.log(`🔌 Connection from: ${userAgent.substring(0, 50)}...`);
+  console.log(`📱 Is phone? ${isPhone}`);
+
+  // Only accept phone connections, ignore browser tabs
+  if (!isPhone) {
+    console.log(`🌐 Ignoring browser/web connection: ${socket.id}`);
+    // Still let it connect for status display, but don't count it
+    socket.emit('status', { count: phones.length });
+    socket.on('disconnect', () => {});
+    return;
+  }
+
+  // Limit to MAX_PHONES
+  if (phones.length >= MAX_PHONES) {
+    console.log(`⚠️  Max phones reached, rejecting: ${socket.id}`);
+    socket.emit('error', { message: 'Server is full (2/2 phones connected)' });
+    socket.disconnect(true);
+    return;
+  }
+
+  console.log(`📱 Phone connected: ${socket.id} (Total: ${phones.length + 1})`);
   phones.push(socket.id);
   io.emit('status', { count: phones.length });
 
@@ -101,4 +132,5 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📱 Max phones: ${MAX_PHONES}`);
 });
