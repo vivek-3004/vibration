@@ -84,7 +84,8 @@ const MAX_PHONES = 2;
 io.on('connection', (socket) => {
   // Check if this is a phone or a browser
   const userAgent = socket.handshake.headers['user-agent'] || '';
-  const isPhone = socket.handshake.auth?.isPhone === true;
+  const isPhone = socket.handshake.auth?.isPhone === "true" || 
+                socket.handshake.auth?.isPhone === true;
   
   console.log(`🔌 Connection from: ${userAgent.substring(0, 50)}...`);
   console.log(`📱 Is phone? ${isPhone}`);
